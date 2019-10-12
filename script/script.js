@@ -93,18 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   }
 
-  //Модальное окно
-  {
-
-   
-
-    document.body.insertAdjacentHTML('beforeend', `
-      <div class="youTuberModal">
-      <div id="youtuberClose">&#215;</div>
-      <div id="youtuberContainer"></div>
-      </div>
-    `);
-
+  const youtuber = () => {
     const youtuberItems = document.querySelectorAll('[data-youtuber]');
     const youTuberModal = document.querySelector('.youTuberModal');
     const youtuberContainer = document.getElementById('youtuberContainer');
@@ -153,13 +142,119 @@ document.addEventListener('DOMContentLoaded', () => {
       youTuberModal.style.display = '';
       youtuberContainer.textContent = '';
       window.remove('resize', sizeVideo); 
-    });
-
-    
+    }); 
   }
+    //Модальное окно
   {
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="youTuberModal">
+      <div id="youtuberClose">&#215;</div>
+      <div id="youtuberContainer"></div>
+      </div>
+    `);
+    youtuber();
+  }
+  //API
+  
     const API_KEY = 'AIzaSyCuxQSWMj5eXFFCWTQHIuDJtquH7ciuFz4';
     const CLIENT_ID = '341464842826-8qsr2ol37ko2tcb4job2hva4o3sk6jim.apps.googleusercontent.com';
+  
+  //авторизация
+  {
+    const buttonAuth = document.getElementById('authorize');
+    const authBlock = document.querySelector('.auth');
+
+    gapi.load("client:auth2", function() {
+      gapi.auth2.init({client_id: CLIENT_ID});
+    });
+
+    const authenticate = () => gapi.auth2.getAuthInstance()
+          .signIn({scope: "https://www.googleapis.com/auth/youtube.readonly"})
+          .then(() => console.log("Sign-in successful"))
+          .catch(errorAuth);
+  
+    const loadClient = () => {
+      gapi.client.setApiKey(API_KEY);
+      return gapi.client.load("https://www.googleapis.com/discovery/v1/apis/youtube/v3/rest")
+          .then(() => console.log("GAPI client loaded for API"))
+          .then(() => authBlock.style.display = 'none')
+          .catch(errorAuth);
+    }
+
+    buttonAuth.addEventListener('click', () => {
+      authenticate().then(loadClient)
+    })
+
+    const errorAuth = err => {
+      console.error(err);
+      authBlock.style.display = '';
+    };
+  }
+
+  //request
+  {
+    const gloTube = document.querySelector('.logo-academy');
+    const trends = document.getElementById('yt_trend');
+    const like = document.getElementById('like');
+
+    const request = option => gapi.client.youtube[option.method]
+      .list(option)
+      .then(response => response.result.items)
+      .then(render)
+      .then(youtuber)
+      .catch(err => console.error('Во время запроса произошла ошибка: ' + err));
+
+    const render = data => {
+      console.log(data);
+      const ytWrapper = document.getElementById('yt-wrapper');
+      ytWrapper.textContent = '';
+      data.forEach(item => {
+        try {
+          const {id:{videoId}, snippet: {channelTitle, title, thumbnails:{high:{url}}}} = item;
+          ytWrapper.innerHTML += `
+            <div class="yt" data-youtuber=${videoId}>
+              <div class="yt-thumbnail" style="--aspect-ratio:16/9;">
+                <img src=${url} alt="thumbnail" class="yt-thumbnail__img">
+              </div>
+              <div class="yt-title">${title}</div>
+              <div class="yt-channel">${channelTitle}</div>
+            </div>
+            `;
+        } catch (err) {
+          console.error(err);
+        }
+      }) 
+    };
+
+    gloTube.addEventListener('click', () => {
+      request({
+        method: 'search',
+        part: 'snippet',
+        channelId: 'UCVswRUcKC-M35RzgPRv8qUg',
+        order: 'date',
+        maxResults: 6,
+      })
+    });
+
+    trends.addEventListener('click', () => {
+      request({
+        method: 'search',
+        part: 'snippet',
+        chart: 'mostPopular',
+        maxResults: 6,
+        regionCode: 'UA',
+      })
+    });
+
+    like.addEventListener('click', () => {
+      request({
+        method: 'playlistItems',
+        part: 'snippet',
+        playlistId: 'LLydXPOazUPESM-pGZ7PLMHg',
+        maxResults: 6,
+      })
+    });
+
   }
 
 });
